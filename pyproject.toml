@@ -10,13 +10,15 @@ dependencies = [
     "pydantic-settings>=2.6.0,<3",
     "supabase>=2.10.0,<3",
     "httpx>=0.28.0,<0.29",
-    "qdrant-client>=1.12.0,<2",
+    "qdrant-client>=1.12.0,<1.13",
     "sqlalchemy[asyncio]>=2.0.36,<3",
     "asyncpg>=0.30.0,<0.31",
     "python-jose[cryptography]>=3.3.0,<4",
     "python-multipart>=0.0.18,<0.1",
     "arq>=0.26.0,<0.27",
     "redis>=5.2.0,<6",
+    "prometheus-fastapi-instrumentator>=7.0.0,<8",
+    "sentry-sdk>=2.19.0,<3",
     "pymupdf>=1.25.0,<2",
     "python-docx>=1.1.0,<2",
 ]
@@ -30,6 +32,7 @@ dev = [
     "pytest>=8.3.0,<9",
     "pytest-asyncio>=0.24.0,<0.25",
     "httpx>=0.28.0,<0.29",
+    "ruff>=0.8.0,<0.9",
 ]
 
 [build-system]
@@ -45,3 +48,11 @@ testpaths = ["tests"]
 markers = [
     "integration: tests requiring Supabase local or external services",
 ]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
