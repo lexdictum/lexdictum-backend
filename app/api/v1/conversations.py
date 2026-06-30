@@ -1,8 +1,9 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import StreamingResponse
 
+from app.core.rate_limit import RateLimitInfo
 from app.dependencies import (
     ChatRateLimitDep,
     ChatServiceDep,
@@ -21,6 +22,17 @@ from app.models.conversation import (
 
 router = APIRouter()
 case_router = APIRouter()
+
+
+def _rate_limit_headers(request: Request) -> dict[str, str]:
+    info: RateLimitInfo | None = getattr(request.state, "rate_limit", None)
+    if info is None:
+        return {}
+    return {
+        "X-RateLimit-Limit": str(info.limit),
+        "X-RateLimit-Remaining": str(info.remaining),
+        "X-RateLimit-Reset": str(info.reset),
+    }
 
 
 @case_router.get("/{case_id}/conversations", response_model=ConversationListResponse)
@@ -88,18 +100,21 @@ async def list_messages(
 async def send_message_stream(
     conversation_id: UUID,
     payload: ChatRequest,
+    request: Request,
     user_id: CurrentUserId,
     chat_service: ChatServiceDep,
     _: ChatRateLimitDep,
 ) -> StreamingResponse:
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+        **_rate_limit_headers(request),
+    }
     return StreamingResponse(
         chat_service.chat_stream(conversation_id, user_id, payload.content),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
+        headers=headers,
     )
 
 
@@ -111,8 +126,12 @@ async def send_message_stream(
 async def send_message(
     conversation_id: UUID,
     payload: ChatRequest,
+    request: Request,
+    response: Response,
     user_id: CurrentUserId,
     chat_service: ChatServiceDep,
     _: ChatRateLimitDep,
 ) -> ChatResponse:
+    for key, value in _rate_limit_headers(request).items():
+        response.headers[key] = value
     return await chat_service.chat(conversation_id, user_id, payload.content)

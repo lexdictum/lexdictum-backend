@@ -1,7 +1,7 @@
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from qdrant_client import QdrantClient
 
 from app.config import Settings, get_settings
@@ -47,12 +47,13 @@ CurrentUserId = Annotated[UUID, Depends(get_current_user_id)]
 
 
 async def enforce_chat_rate_limit(
+    request: Request,
     user_id: CurrentUserId,
     settings: Settings = Depends(get_settings),
 ) -> None:
     if not settings.rate_limit_enabled:
         return
-    get_chat_rate_limiter(
+    request.state.rate_limit = get_chat_rate_limiter(
         settings.redis_url,
         settings.rate_limit_chat_per_minute,
     ).check(str(user_id))

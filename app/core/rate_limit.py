@@ -1,10 +1,18 @@
 import time
+from dataclasses import dataclass
 from functools import lru_cache
 
 import redis
 from fastapi import status
 
 from app.core.exceptions import LexDictumError
+
+
+@dataclass(frozen=True)
+class RateLimitInfo:
+    limit: int
+    remaining: int
+    reset: int
 
 
 class RateLimitExceededError(LexDictumError):
@@ -31,16 +39,24 @@ class ChatRateLimiter:
         self.limit = limit
         self.window = window_seconds
 
-    def check(self, key: str) -> None:
+    def check(self, key: str) -> RateLimitInfo:
         now = int(time.time())
-        bucket = f"rate:chat:{key}:{now // self.window}"
+        window_start = now // self.window
+        reset = (window_start + 1) * self.window
+        bucket = f"rate:chat:{key}:{window_start}"
         pipe = self._redis.pipeline()
         pipe.incr(bucket)
         pipe.expire(bucket, self.window + 1)
         count, _ = pipe.execute()
-        if int(count) > self.limit:
+        current = int(count)
+        if current > self.limit:
             retry_after = self.window - (now % self.window)
             raise RateLimitExceededError(retry_after=retry_after)
+        return RateLimitInfo(
+            limit=self.limit,
+            remaining=max(0, self.limit - current),
+            reset=reset,
+        )
 
 
 @lru_cache
