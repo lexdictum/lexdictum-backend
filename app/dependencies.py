@@ -3,10 +3,10 @@ from uuid import UUID
 
 from fastapi import Depends, Header
 from qdrant_client import QdrantClient
-from supabase import Client
 
 from app.config import Settings, get_settings
 from app.core.exceptions import UnauthorizedError
+from app.core.rate_limit import get_chat_rate_limiter
 from app.core.security import decode_supabase_jwt
 from app.services.cases import CaseService, get_case_service
 from app.services.chat import ChatService, get_chat_service
@@ -15,6 +15,7 @@ from app.services.documents import DocumentService, get_document_service
 from app.services.profiles import ProfileService, get_profile_service
 from app.services.supabase import get_supabase_user
 from app.vector.qdrant import get_qdrant_client
+from supabase import Client
 
 
 async def get_bearer_token(
@@ -43,6 +44,21 @@ async def get_current_user_id(user: CurrentUser) -> UUID:
 
 
 CurrentUserId = Annotated[UUID, Depends(get_current_user_id)]
+
+
+async def enforce_chat_rate_limit(
+    user_id: CurrentUserId,
+    settings: Settings = Depends(get_settings),
+) -> None:
+    if not settings.rate_limit_enabled:
+        return
+    get_chat_rate_limiter(
+        settings.redis_url,
+        settings.rate_limit_chat_per_minute,
+    ).check(str(user_id))
+
+
+ChatRateLimitDep = Annotated[None, Depends(enforce_chat_rate_limit)]
 
 
 async def get_supabase_user_client(

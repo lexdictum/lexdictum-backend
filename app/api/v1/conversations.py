@@ -3,7 +3,12 @@ from uuid import UUID
 from fastapi import APIRouter, Response, status
 from fastapi.responses import StreamingResponse
 
-from app.dependencies import ChatServiceDep, ConversationServiceDep, CurrentUserId
+from app.dependencies import (
+    ChatRateLimitDep,
+    ChatServiceDep,
+    ConversationServiceDep,
+    CurrentUserId,
+)
 from app.models.conversation import (
     ChatRequest,
     ChatResponse,
@@ -85,6 +90,7 @@ async def send_message_stream(
     payload: ChatRequest,
     user_id: CurrentUserId,
     chat_service: ChatServiceDep,
+    _: ChatRateLimitDep,
 ) -> StreamingResponse:
     return StreamingResponse(
         chat_service.chat_stream(conversation_id, user_id, payload.content),
@@ -107,5 +113,6 @@ async def send_message(
     payload: ChatRequest,
     user_id: CurrentUserId,
     chat_service: ChatServiceDep,
+    _: ChatRateLimitDep,
 ) -> ChatResponse:
     return await chat_service.chat(conversation_id, user_id, payload.content)

@@ -11,6 +11,14 @@ from app.config import Settings, get_settings
 from app.main import app
 
 
+@pytest.fixture(autouse=True)
+def disable_rate_limit_by_default(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
 @pytest.fixture
 def settings() -> Settings:
     return get_settings()
