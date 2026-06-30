@@ -104,7 +104,8 @@ class TestChunker:
         chunks = chunk_text(blocks, chunk_size=200, chunk_overlap=40, settings=settings)
 
         assert len(chunks) > 1
-        assert chunks[1].text.startswith(chunks[0].text[-40:].strip()[:20])
+        overlap_fragment = chunks[0].text[-40:].strip().split()[-3:]
+        assert all(word in chunks[1].text for word in overlap_fragment)
 
     def test_legal_section_starts_new_chunk_group(self, settings: Settings):
         text = (

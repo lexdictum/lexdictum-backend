@@ -13,7 +13,9 @@ def embed_texts(
 
     model = _get_model(settings)
     vectors = model.encode(texts, show_progress_bar=False, convert_to_numpy=True)
-    return vectors.tolist()
+    if hasattr(vectors, "tolist"):
+        return vectors.tolist()
+    return [list(row) for row in vectors]
 
 
 def _get_model(settings: Settings | None = None):
