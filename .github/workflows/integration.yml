@@ -1,0 +1,57 @@
+# Optional integration tests — does not block main CI.
+# Trigger manually from GitHub Actions or run locally after ./scripts/setup-supabase.sh
+#
+# Local:
+#   ./scripts/setup-supabase.sh
+#   SUPABASE_LOCAL=1 uv run pytest tests/ --run-integration -q
+#
+name: Integration
+
+on:
+  workflow_dispatch:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Check Supabase CLI
+        id: supabase
+        run: |
+          if command -v supabase >/dev/null 2>&1; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Supabase CLI not installed; skipping integration tests."
+          fi
+
+      - name: Start Supabase local
+        if: steps.supabase.outputs.available == 'true'
+        run: |
+          supabase start || echo "Supabase start failed; tests may skip."
+
+      - name: Run integration tests
+        env:
+          SUPABASE_LOCAL: "1"
+        run: |
+          if [ "${{ steps.supabase.outputs.available }}" != "true" ]; then
+            echo "Skipping integration tests (no Supabase CLI)."
+            exit 0
+          fi
+          uv run pytest tests/ --run-integration -q || {
+            echo "Integration tests failed or Supabase unavailable — non-blocking job."
+            exit 0
+          }

@@ -1,0 +1,25 @@
+# LexDictum arq worker — separate Fly.io app (no HTTP service)
+#
+# Create the app (once): fly apps create lexdictum-worker
+# Deploy: fly deploy -c fly.worker.toml
+#
+# Workers do not expose ports; monitor via Redis queue depth, logs, and Sentry.
+
+app = 'lexdictum-worker'
+primary_region = 'mad'
+
+[build]
+  dockerfile = 'Dockerfile.worker'
+
+[env]
+  APP_ENV = 'production'
+  DEBUG = 'false'
+  OCR_ENABLED = 'false'
+  EMBEDDING_PROVIDER = 'local'
+
+kill_signal = 'SIGTERM'
+kill_timeout = '30s'
+
+[[vm]]
+  size = 'shared-cpu-2x'
+  memory = '2048mb'

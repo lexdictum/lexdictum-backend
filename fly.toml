@@ -1,0 +1,48 @@
+# LexDictum API — Fly.io app configuration
+#
+# Create the app (once): fly apps create lexdictum-api
+# Or pick another name and replace `app` below, then: fly deploy --app <name>
+#
+# Staging: duplicate this file or use `fly deploy --app lexdictum-api-staging`
+
+app = 'lexdictum-api'
+primary_region = 'mad'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  APP_ENV = 'production'
+  DEBUG = 'false'
+  RATE_LIMIT_ENABLED = 'true'
+  OTEL_ENABLED = 'false'
+  OCR_ENABLED = 'false'
+  RAG_USE_HYBRID_SEARCH = 'false'
+  EMBEDDING_PROVIDER = 'local'
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  # min_machines_running = 0 — scale to zero when idle (lower cost, cold starts ~2–5s)
+  # min_machines_running = 1 — always warm (recommended for production UX)
+  min_machines_running = 0
+
+[[http_service.checks]]
+  grace_period = '10s'
+  interval = '30s'
+  method = 'GET'
+  timeout = '5s'
+  path = '/api/v1/health'
+
+[[http_service.checks]]
+  grace_period = '20s'
+  interval = '30s'
+  method = 'GET'
+  timeout = '10s'
+  path = '/api/v1/health/ready'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '512mb'
