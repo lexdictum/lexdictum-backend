@@ -31,16 +31,19 @@ class Settings(BaseSettings):
     allowed_upload_mime_types: list[str] = [
         "application/pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "image/jpeg",
-        "image/png",
-        "image/webp",
     ]
+    ocr_enabled: bool = False
+    tesseract_lang: str = "spa"
+    otel_enabled: bool = False
+    otel_exporter_endpoint: str | None = None
     signed_url_expires_seconds: int = 3600
 
     arq_max_tries: int = 3
     arq_retry_delay_seconds: int = 30
 
     embedding_model_name: str = "nlpaueb/legal-bert-base-uncased"
+    embedding_provider: str = "local"
+    embedding_service_url: str | None = None
     chunk_size: int = 512
     chunk_overlap: int = 64
 
@@ -51,6 +54,8 @@ class Settings(BaseSettings):
 
     rag_top_k: int = 5
     rag_max_context_messages: int = 20
+    rag_use_hybrid_search: bool = False
+    rag_rrf_k: int = 60
     sentry_dsn: str | None = None
     rate_limit_chat_per_minute: int = 20
     rate_limit_enabled: bool = True
@@ -76,3 +81,16 @@ def get_settings() -> Settings:
 def is_production(settings: Settings | None = None) -> bool:
     settings = settings or get_settings()
     return settings.app_env == "production"
+
+
+IMAGE_UPLOAD_MIME_TYPES: frozenset[str] = frozenset(
+    {"image/jpeg", "image/png", "image/webp"}
+)
+
+
+def effective_allowed_upload_mime_types(settings: Settings | None = None) -> frozenset[str]:
+    settings = settings or get_settings()
+    allowed = set(settings.allowed_upload_mime_types)
+    if settings.ocr_enabled:
+        allowed.update(IMAGE_UPLOAD_MIME_TYPES)
+    return frozenset(allowed)
