@@ -3,13 +3,13 @@ from collections.abc import AsyncIterator
 from uuid import UUID
 
 from qdrant_client import QdrantClient
-from supabase import Client
 
 from app.config import Settings, get_settings
 from app.models.conversation import ChatResponse, Citation, MessageRole
 from app.services.conversations import ConversationService, get_conversation_service
 from app.services.llm import LLMService, get_llm_service
 from app.services.rag import RAGService, get_rag_service
+from supabase import Client
 
 
 class ChatService:

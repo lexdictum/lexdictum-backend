@@ -1,11 +1,11 @@
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import Settings, get_settings
+from app.config import Settings
 from app.core.exceptions import NotFoundError, ServiceUnavailableError
 from app.dependencies import get_chat_service_dep, get_conversation_service_dep
 from app.main import app
@@ -18,10 +18,9 @@ from app.models.conversation import (
     MessageRole,
 )
 from app.services.chat import ChatService
-from app.services.conversations import ConversationService, DEFAULT_CONVERSATION_TITLE
+from app.services.conversations import DEFAULT_CONVERSATION_TITLE, ConversationService
 from app.services.llm import LLMService
-from app.services.rag import RAGService, RetrievedChunk
-from app.vector.qdrant import ScoredChunk, search_case_chunks
+from app.services.rag import RetrievedChunk
 
 
 @pytest.fixture

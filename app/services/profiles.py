@@ -1,9 +1,8 @@
 from uuid import UUID
 
-from supabase import Client
-
 from app.core.exceptions import NotFoundError
 from app.models.profile import ProfileResponse, ProfileUpdate
+from supabase import Client
 
 
 class ProfileService:

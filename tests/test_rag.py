@@ -1,8 +1,6 @@
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-import pytest
-
 from app.services.rag import RAGService, RetrievedChunk
 from app.vector.qdrant import ScoredChunk, search_case_chunks
 

@@ -1,9 +1,8 @@
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
-from supabase import Client
-
 from app.core.exceptions import StorageError
+from supabase import Client
 
 
 class StorageService:

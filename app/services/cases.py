@@ -1,10 +1,9 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from supabase import Client
-
 from app.core.exceptions import NotFoundError
 from app.models.case import CaseCreate, CaseListResponse, CaseResponse, CaseUpdate
+from supabase import Client
 
 
 class CaseService:

@@ -1,8 +1,6 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from supabase import Client
-
 from app.core.exceptions import NotFoundError
 from app.models.conversation import (
     ConversationCreate,
@@ -13,7 +11,7 @@ from app.models.conversation import (
     MessageResponse,
     MessageRole,
 )
-
+from supabase import Client
 
 DEFAULT_CONVERSATION_TITLE = "Nueva conversación"
 

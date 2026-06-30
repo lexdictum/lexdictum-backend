@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.dependencies import CurrentUser, ProfileServiceDep
-from app.models.profile import AuthMeResponse, ProfileResponse, ProfileUpdate, UserInfo
+from app.models.profile import AuthMeResponse, UserInfo
 
 router = APIRouter()
 

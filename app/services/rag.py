@@ -2,11 +2,11 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from qdrant_client import QdrantClient
-from supabase import Client
 
 from app.config import Settings, get_settings
 from app.pipeline.embedder import embed_texts
 from app.vector.qdrant import ScoredChunk, search_case_chunks
+from supabase import Client
 
 
 @dataclass(frozen=True)

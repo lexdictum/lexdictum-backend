@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from qdrant_client import QdrantClient
-from supabase import Client
 
 from app.config import Settings, get_settings
 from app.core.exceptions import NotFoundError, StorageError
@@ -19,6 +18,7 @@ from app.models.document import (
 from app.pipeline.indexer import remove_document_vectors
 from app.services.storage import StorageService, get_storage_service
 from app.vector.qdrant import get_qdrant_client
+from supabase import Client
 
 
 class DocumentService:
