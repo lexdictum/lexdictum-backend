@@ -51,6 +51,10 @@ class Settings(BaseSettings):
 
     rag_top_k: int = 5
     rag_max_context_messages: int = 20
+    sentry_dsn: str | None = None
+    rate_limit_chat_per_minute: int = 20
+    rate_limit_enabled: bool = True
+
     rag_system_prompt: str = (
         "Eres LexDictum, un asistente jurídico especializado en derecho español. "
         "Responde en español claro y preciso, basándote únicamente en los fragmentos "
@@ -67,3 +71,8 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def is_production(settings: Settings | None = None) -> bool:
+    settings = settings or get_settings()
+    return settings.app_env == "production"
