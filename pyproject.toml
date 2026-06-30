@@ -28,6 +28,16 @@ ml = [
     "sentence-transformers>=3.3.0,<4",
     "torch>=2.5.0,<3",
 ]
+ocr = [
+    "pytesseract>=0.3.10,<0.4",
+    "pillow>=10.0.0,<12",
+]
+observability = [
+    "opentelemetry-api>=1.28.0,<2",
+    "opentelemetry-sdk>=1.28.0,<2",
+    "opentelemetry-exporter-otlp-proto-http>=1.28.0,<2",
+    "opentelemetry-instrumentation-fastapi>=0.49b0,<0.50",
+]
 dev = [
     "pytest>=8.3.0,<9",
     "pytest-asyncio>=0.24.0,<0.25",
@@ -47,6 +57,7 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
     "integration: tests requiring Supabase local or external services",
+    "e2e: end-to-end flow tests (may use mocked external deps)",
 ]
 
 [tool.ruff]
