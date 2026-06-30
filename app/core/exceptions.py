@@ -50,5 +50,13 @@ class StorageError(LexDictumError):
         super().__init__(message, status_code=status.HTTP_502_BAD_GATEWAY)
 
 
+class ServiceUnavailableError(LexDictumError):
+    def __init__(
+        self,
+        message: str = "Servicio temporalmente no disponible",
+    ):
+        super().__init__(message, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
 def http_exception_from_error(error: LexDictumError) -> HTTPException:
     return HTTPException(status_code=error.status_code, detail=error.message)

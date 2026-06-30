@@ -44,6 +44,25 @@ class Settings(BaseSettings):
     chunk_size: int = 512
     chunk_overlap: int = 64
 
+    llm_provider: str = "openai"
+    llm_api_key: str | None = None
+    llm_base_url: str | None = None
+    llm_model: str = "gpt-4o-mini"
+
+    rag_top_k: int = 5
+    rag_max_context_messages: int = 20
+    rag_system_prompt: str = (
+        "Eres LexDictum, un asistente jurídico especializado en derecho español. "
+        "Responde en español claro y preciso, basándote únicamente en los fragmentos "
+        "documentales proporcionados del expediente. Si la información no aparece en "
+        "los documentos, indícalo explícitamente y no inventes hechos ni normativa. "
+        "Cita las fuentes usando el formato [Fuente N] cuando te refieras a un "
+        "fragmento concreto. Al final de tu respuesta, incluye un bloque JSON de "
+        "citas con este formato exacto (sin markdown):\n"
+        "<!--CITATIONS:[{\"source_index\":1,\"document_id\":\"...\","
+        "\"page\":1,\"chunk_index\":0,\"text_snippet\":\"...\"}]-->"
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:
