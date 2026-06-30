@@ -41,15 +41,15 @@ Phased plan for agent-driven development.
 - [x] Qdrant indexing: payload with `case_id`, `document_id`, `chunk_index`, `text`, `page`
 - [x] Re-index and delete-on-document-remove flows
 
-## Phase 5: Case Conversations + RAG Agent (current)
+## Phase 5: Case Conversations + RAG Agent (done)
 
-- Conversation and message CRUD endpoints
-- RAG retrieval: query Qdrant by case_id, re-rank chunks
-- LLM integration for legal Q&A per case (streaming responses)
-- Citation metadata in assistant messages (source document, page)
-- Conversation history management and context window strategy
+- [x] Conversation and message CRUD endpoints
+- [x] RAG retrieval: query Qdrant by case_id, re-rank chunks
+- [x] LLM integration for legal Q&A per case (streaming responses)
+- [x] Citation metadata in assistant messages (source document, page)
+- [x] Conversation history management and context window strategy
 
-## Phase 6: Production Hardening
+## Phase 6: Production Hardening (current)
 
 - Structured logging, OpenTelemetry, health checks for all deps
 - Rate limiting, request validation hardening
