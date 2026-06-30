@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import Settings
+from app.config import Settings, effective_allowed_upload_mime_types, get_settings
 from app.core.exceptions import PayloadTooLargeError, UnsupportedMediaTypeError
 from app.core.validators import validate_upload_file
 from app.dependencies import get_document_service_dep
@@ -70,20 +70,44 @@ class TestUploadValidation:
             == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
 
-    def test_accepts_png_image(self, settings: Settings):
+    def test_rejects_png_when_ocr_disabled(self, settings: Settings):
+        with pytest.raises(UnsupportedMediaTypeError, match="no permitido"):
+            validate_upload_file(
+                "prueba.png",
+                b"\x89PNG\r\n",
+                "image/png",
+                max_size_bytes=settings.max_upload_size_bytes,
+                allowed_mime_types=effective_allowed_upload_mime_types(settings),
+            )
+
+    def test_accepts_png_when_ocr_enabled(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv("OCR_ENABLED", "true")
+        get_settings.cache_clear()
+        settings = get_settings()
         mime = validate_upload_file(
-            "prueba.png",
+            "escaneo.png",
             b"\x89PNG\r\n",
             "image/png",
             max_size_bytes=settings.max_upload_size_bytes,
+            allowed_mime_types=effective_allowed_upload_mime_types(settings),
         )
         assert mime == "image/png"
+        get_settings.cache_clear()
 
     def test_rejects_empty_file(self, settings: Settings):
         with pytest.raises(UnsupportedMediaTypeError, match="vacío"):
             validate_upload_file(
                 "vacio.pdf",
                 b"",
+                "application/pdf",
+                max_size_bytes=settings.max_upload_size_bytes,
+            )
+
+    def test_rejects_path_traversal_filename(self, settings: Settings):
+        with pytest.raises(UnsupportedMediaTypeError, match="no válido"):
+            validate_upload_file(
+                "../../etc/passwd.pdf",
+                b"%PDF-1.4",
                 "application/pdf",
                 max_size_bytes=settings.max_upload_size_bytes,
             )

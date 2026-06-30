@@ -5,13 +5,21 @@ Integration tests require Supabase local (`SUPABASE_LOCAL=1 supabase start`).
 """
 
 from unittest.mock import MagicMock, patch
+from uuid import UUID
 
 import pytest
 
+from app.core.exceptions import NotFoundError
 from app.services.cases import CaseService
 from app.services.documents import DocumentService
 from app.services.profiles import ProfileService
 from app.services.supabase import get_supabase_admin, get_supabase_user
+from tests.helpers.supabase_seed import (
+    create_case,
+    create_test_user,
+    delete_test_user,
+    user_client,
+)
 
 
 def test_user_client_uses_anon_key_and_sets_auth(settings):
@@ -66,18 +74,89 @@ def test_profile_service_uses_injected_client():
 class TestRLSIsolation:
     """End-to-end RLS checks against Supabase local.
 
-    Run with: SUPABASE_LOCAL=1 pytest tests/test_rls.py --run-integration
+    Run with: SUPABASE_LOCAL=1 pytest tests/test_rls.py --run-integration -k TestRLSIsolation
     """
 
     def test_user_cannot_read_other_users_case(
-        self, supabase_local_available, run_integration
+        self,
+        supabase_integration_settings,
+        supabase_local_available,
     ):
-        if not run_integration:
-            pytest.skip("Pass --run-integration to execute")
         if not supabase_local_available:
             pytest.skip("Set SUPABASE_LOCAL=1 with supabase start")
 
-        # TODO(Phase 3+): seed two users via Supabase Auth, create case for user A,
-        # assert user B's JWT client returns empty / 404 for that case.
-        pytest.skip("Requires Supabase Auth seed helpers (Phase 3)")
+        settings = supabase_integration_settings
+        user_a = create_test_user(settings)
+        user_b = create_test_user(settings)
 
+        try:
+            case_id = create_case(settings, user_a, title="Expediente privado A")
+
+            service_b = CaseService(user_client(settings, user_b.access_token))
+            with pytest.raises(NotFoundError, match="Expediente no encontrado"):
+                service_b.get_case(case_id, user_b.user_id)
+
+            listed = service_b.list_cases(user_b.user_id)
+            assert all(item.id != case_id for item in listed.items)
+        finally:
+            delete_test_user(settings, user_a.user_id)
+            delete_test_user(settings, user_b.user_id)
+
+    def test_user_cannot_read_other_users_document_metadata(
+        self,
+        supabase_integration_settings,
+        supabase_local_available,
+    ):
+        if not supabase_local_available:
+            pytest.skip("Set SUPABASE_LOCAL=1 with supabase start")
+
+        settings = supabase_integration_settings
+        user_a = create_test_user(settings)
+        user_b = create_test_user(settings)
+
+        try:
+            case_id = create_case(settings, user_a)
+            admin = get_supabase_admin(settings)
+            document_id = admin.table("documents").insert(
+                {
+                    "case_id": str(case_id),
+                    "user_id": str(user_a.user_id),
+                    "filename": "contrato.pdf",
+                    "storage_path": f"{user_a.user_id}/{case_id}/contrato.pdf",
+                    "mime_type": "application/pdf",
+                    "status": "pending",
+                    "chunk_count": 0,
+                }
+            ).execute().data[0]["id"]
+
+            service_b = DocumentService(user_client(settings, user_b.access_token))
+            with pytest.raises(NotFoundError, match="Documento no encontrado"):
+                service_b.get_document(UUID(document_id), user_b.user_id)
+        finally:
+            delete_test_user(settings, user_a.user_id)
+            delete_test_user(settings, user_b.user_id)
+
+    def test_user_cannot_update_other_users_profile(
+        self,
+        supabase_integration_settings,
+        supabase_local_available,
+    ):
+        if not supabase_local_available:
+            pytest.skip("Set SUPABASE_LOCAL=1 with supabase start")
+
+        from app.models.profile import ProfileUpdate
+
+        settings = supabase_integration_settings
+        user_a = create_test_user(settings)
+        user_b = create_test_user(settings)
+
+        try:
+            service_b = ProfileService(user_client(settings, user_b.access_token))
+            with pytest.raises(NotFoundError, match="Perfil no encontrado"):
+                service_b.update_profile(
+                    user_a.user_id,
+                    ProfileUpdate(full_name="Intruso"),
+                )
+        finally:
+            delete_test_user(settings, user_a.user_id)
+            delete_test_user(settings, user_b.user_id)

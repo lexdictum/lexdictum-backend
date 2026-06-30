@@ -73,7 +73,51 @@ class TestExtractors:
 
     def test_rejects_unsupported_mime(self):
         with pytest.raises(ExtractionError, match="no soportado"):
-            extract_text(b"\x89PNG\r\n", "image/png")
+            extract_text(b"ZIPDATA", "application/zip")
+
+    def test_rejects_image_when_ocr_disabled(self):
+        with pytest.raises(ExtractionError, match="requieren OCR"):
+            extract_text(b"\x89PNG\r\n", "image/png", ocr_enabled=False)
+
+    def test_extract_image_with_mocked_tesseract(self):
+        png_content = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+        with patch(
+            "app.pipeline.extractors._run_tesseract",
+            return_value="Demanda escaneada",
+        ):
+            blocks = extract_text(png_content, "image/png", ocr_enabled=True)
+
+        assert len(blocks) == 1
+        assert blocks[0].text == "Demanda escaneada"
+        assert blocks[0].page == 1
+
+    def test_pdf_ocr_fallback_when_no_text_layer(self):
+        document = fitz.open()
+        document.new_page()
+        empty_pdf = document.tobytes()
+        document.close()
+
+        with patch(
+            "app.pipeline.extractors._ocr_pdf_page",
+            return_value="Texto reconocido por OCR",
+        ):
+            blocks = extract_text(
+                empty_pdf,
+                "application/pdf",
+                ocr_enabled=True,
+            )
+
+        assert len(blocks) == 1
+        assert "OCR" in blocks[0].text
+
+    def test_ocr_unavailable_raises_spanish_error(self):
+        png_content = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+        with patch(
+            "app.pipeline.extractors._run_tesseract",
+            side_effect=ExtractionError("OCR no está disponible"),
+        ):
+            with pytest.raises(ExtractionError, match="OCR no está disponible"):
+                extract_text(png_content, "image/png", ocr_enabled=True)
 
     def test_split_legal_sections(self):
         text = (
@@ -280,16 +324,25 @@ class TestDocumentPipelineWorker:
                 "app.workers.tasks.document_pipeline.remove_document_vectors",
             ) as mock_remove,
             patch(
+                "app.workers.tasks.document_pipeline.remove_document_chunks",
+            ) as mock_remove_chunks,
+            patch(
                 "app.workers.tasks.document_pipeline.ensure_collection",
             ),
             patch(
-                "app.pipeline.embedder.embed_texts",
-                return_value=[[0.0] * 768],
-            ),
+                "app.workers.tasks.document_pipeline.get_embedding_provider",
+            ) as mock_get_embedder,
             patch(
                 "app.workers.tasks.document_pipeline.index_document_chunks",
             ) as mock_index,
+            patch(
+                "app.workers.tasks.document_pipeline.persist_document_chunks",
+            ) as mock_persist,
         ):
+            mock_embedder = MagicMock()
+            mock_embedder.embed.return_value = [[0.0] * 768]
+            mock_get_embedder.return_value = mock_embedder
+
             from app.workers.tasks.document_pipeline import process_document
 
             result = await process_document({"job_try": 1}, document_id)
@@ -297,7 +350,9 @@ class TestDocumentPipelineWorker:
         assert result["status"] == "ready"
         assert result["chunk_count"] >= 1
         mock_remove.assert_called_once()
+        mock_remove_chunks.assert_called_once()
         mock_index.assert_called_once()
+        mock_persist.assert_called_once()
         mock_storage.download.assert_called_once_with("user/case/doc.pdf")
 
     @pytest.mark.asyncio

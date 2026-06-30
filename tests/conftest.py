@@ -10,6 +10,43 @@ from jose import jwt
 from app.config import Settings, get_settings
 from app.main import app
 
+SUPABASE_LOCAL_DEFAULTS = {
+    "supabase_url": "http://127.0.0.1:54321",
+    "supabase_anon_key": (
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+        "eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9."
+        "CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
+    ),
+    "supabase_service_role_key": (
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+        "eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0."
+        "EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+    ),
+    "supabase_jwt_secret": (
+        "super-secret-jwt-token-with-at-least-32-characters-long"
+    ),
+}
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-integration",
+        action="store_true",
+        default=False,
+        help="Run integration tests that need Supabase local or external services",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--run-integration"):
+        return
+    skip_integration = pytest.mark.skip(
+        reason="Pass --run-integration to execute integration tests"
+    )
+    for item in items:
+        if "integration" in item.keywords:
+            item.add_marker(skip_integration)
+
 
 @pytest.fixture(autouse=True)
 def disable_rate_limit_by_default(monkeypatch: pytest.MonkeyPatch):
@@ -74,15 +111,43 @@ def supabase_local_available() -> bool:
     return os.getenv("SUPABASE_LOCAL", "").lower() in ("1", "true", "yes")
 
 
-def pytest_addoption(parser):
-    parser.addoption(
-        "--run-integration",
-        action="store_true",
-        default=False,
-        help="Run integration tests that need Supabase local",
-    )
-
-
 @pytest.fixture
 def run_integration(request) -> bool:
     return request.config.getoption("--run-integration")
+
+
+@pytest.fixture
+def supabase_integration_settings(
+    settings: Settings, supabase_local_available: bool
+) -> Settings:
+    if not supabase_local_available:
+        return settings
+
+    overrides = {
+        key: os.getenv(env_name, default)
+        for key, env_name, default in (
+            ("supabase_url", "SUPABASE_URL", SUPABASE_LOCAL_DEFAULTS["supabase_url"]),
+            (
+                "supabase_anon_key",
+                "SUPABASE_ANON_KEY",
+                SUPABASE_LOCAL_DEFAULTS["supabase_anon_key"],
+            ),
+            (
+                "supabase_service_role_key",
+                "SUPABASE_SERVICE_ROLE_KEY",
+                SUPABASE_LOCAL_DEFAULTS["supabase_service_role_key"],
+            ),
+            (
+                "supabase_jwt_secret",
+                "SUPABASE_JWT_SECRET",
+                SUPABASE_LOCAL_DEFAULTS["supabase_jwt_secret"],
+            ),
+        )
+    }
+    return settings.model_copy(update=overrides)
+
+
+@pytest.fixture
+def qdrant_available() -> bool:
+    return os.getenv("QDRANT_INTEGRATION", "").lower() in ("1", "true", "yes")
+

@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 from app.services.rag import RAGService, RetrievedChunk
+from app.services.search.fts import FtsChunk
 from app.vector.qdrant import ScoredChunk, search_case_chunks
 
 
@@ -59,14 +60,10 @@ class TestSearchCaseChunks:
 
 
 class TestRAGService:
-    @patch("app.services.rag.embed_texts")
     @patch("app.services.rag.search_case_chunks")
-    def test_retrieve_context_maps_filenames(
-        self, mock_search, mock_embed, settings
-    ):
+    def test_retrieve_context_maps_filenames(self, mock_search, settings):
         case_id = uuid4()
         document_id = str(uuid4())
-        mock_embed.return_value = [[0.1] * 768]
         mock_search.return_value = [
             ScoredChunk(
                 case_id=str(case_id),
@@ -78,13 +75,16 @@ class TestRAGService:
             )
         ]
 
+        mock_embedder = MagicMock()
+        mock_embedder.embed.return_value = [[0.1] * 768]
+
         mock_client = MagicMock()
         mock_client.table.return_value.select.return_value.in_.return_value.execute.return_value = MagicMock(
             data=[{"id": document_id, "filename": "codigo.pdf"}]
         )
         mock_qdrant = MagicMock()
 
-        service = RAGService(mock_client, mock_qdrant, settings)
+        service = RAGService(mock_client, mock_qdrant, settings, embedder=mock_embedder)
         chunks = service.retrieve_context(case_id, "¿Qué dice el artículo 123?")
 
         assert len(chunks) == 1
@@ -92,22 +92,93 @@ class TestRAGService:
         assert chunks[0].filename == "codigo.pdf"
         assert chunks[0].text == "Artículo 123 del Código Civil"
         mock_search.assert_called_once()
-        mock_embed.assert_called_once()
+        mock_embedder.embed.assert_called_once_with(["¿Qué dice el artículo 123?"])
 
-    @patch("app.services.rag.embed_texts")
     @patch("app.services.rag.search_case_chunks")
-    def test_retrieve_context_respects_top_k(
-        self, mock_search, mock_embed, settings
-    ):
+    def test_retrieve_context_respects_top_k(self, mock_search, settings):
         case_id = uuid4()
-        mock_embed.return_value = [[0.1] * 768]
         mock_search.return_value = []
+
+        mock_embedder = MagicMock()
+        mock_embedder.embed.return_value = [[0.1] * 768]
 
         mock_client = MagicMock()
         mock_qdrant = MagicMock()
-        service = RAGService(mock_client, mock_qdrant, settings)
+        service = RAGService(mock_client, mock_qdrant, settings, embedder=mock_embedder)
 
         service.retrieve_context(case_id, "consulta", top_k=3)
 
         mock_search.assert_called_once()
         assert mock_search.call_args.args[4] == 3
+
+    @patch("app.services.rag.search_case_chunks_fts")
+    @patch("app.services.rag.search_case_chunks")
+    def test_retrieve_context_hybrid_fuses_vector_and_fts(
+        self, mock_search, mock_fts, settings
+    ):
+        case_id = uuid4()
+        document_id = str(uuid4())
+        hybrid_settings = settings.model_copy(
+            update={"rag_use_hybrid_search": True, "rag_rrf_k": 60}
+        )
+
+        mock_search.return_value = [
+            ScoredChunk(
+                case_id=str(case_id),
+                document_id=document_id,
+                chunk_index=0,
+                text="Artículo 123 del Código Civil",
+                page=10,
+                score=0.88,
+            )
+        ]
+        mock_fts.return_value = [
+            FtsChunk(
+                document_id=document_id,
+                chunk_index=1,
+                text="Cláusula penal del contrato",
+                page=3,
+                rank=0.75,
+            )
+        ]
+
+        mock_embedder = MagicMock()
+        mock_embedder.embed.return_value = [[0.1] * 768]
+
+        mock_client = MagicMock()
+        mock_client.table.return_value.select.return_value.in_.return_value.execute.return_value = MagicMock(
+            data=[{"id": document_id, "filename": "codigo.pdf"}]
+        )
+        mock_qdrant = MagicMock()
+
+        service = RAGService(
+            mock_client, mock_qdrant, hybrid_settings, embedder=mock_embedder
+        )
+        chunks = service.retrieve_context(case_id, "artículo contrato")
+
+        assert len(chunks) == 2
+        assert all(isinstance(chunk, RetrievedChunk) for chunk in chunks)
+        assert {chunk.chunk_index for chunk in chunks} == {0, 1}
+        mock_search.assert_called_once()
+        mock_fts.assert_called_once()
+        assert mock_search.call_args.args[4] == hybrid_settings.rag_top_k * 2
+
+    @patch("app.services.rag.search_case_chunks")
+    def test_retrieve_context_vector_only_skips_fts(self, mock_search, settings):
+        case_id = uuid4()
+        mock_search.return_value = []
+
+        mock_embedder = MagicMock()
+        mock_embedder.embed.return_value = [[0.1] * 768]
+
+        mock_client = MagicMock()
+        mock_qdrant = MagicMock()
+        vector_settings = settings.model_copy(update={"rag_use_hybrid_search": False})
+
+        with patch("app.services.rag.search_case_chunks_fts") as mock_fts:
+            service = RAGService(
+                mock_client, mock_qdrant, vector_settings, embedder=mock_embedder
+            )
+            service.retrieve_context(case_id, "consulta")
+
+        mock_fts.assert_not_called()
