@@ -17,7 +17,13 @@ services:
     restart: unless-stopped
 
   worker:
-    build: .
+    build:
+      context: .
+      args:
+        # Worker needs embeddings — rebuild with INSTALL_ML=1 (default for prod worker):
+        INSTALL_ML: "1"
+        # Optional OCR for scanned PDFs/images — also set OCR_ENABLED=true:
+        INSTALL_OCR: "0"
     command: ["arq", "app.workers.settings.WorkerSettings"]
     env_file:
       - .env
