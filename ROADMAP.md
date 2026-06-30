@@ -49,14 +49,28 @@ Phased plan for agent-driven development.
 - [x] Citation metadata in assistant messages (source document, page)
 - [x] Conversation history management and context window strategy
 
-## Phase 6: Production Hardening (current)
+## Phase 6: Production Hardening (done)
 
-- Structured logging, OpenTelemetry, health checks for all deps
-- Rate limiting, request validation hardening
-- Comprehensive test suite (unit, integration, e2e)
-- CI/CD pipeline, staging environment
-- Secrets management, security audit
-- Monitoring and alerting (Sentry, Prometheus)
+- [x] Structured JSON logging (production) + readable dev logs
+- [x] Request ID middleware (`X-Request-ID`)
+- [x] Liveness (`/api/v1/health`) and readiness (`/api/v1/health/ready`) checks
+- [x] Redis-based chat rate limiting (configurable per minute)
+- [x] Global exception handlers (no stack trace leak in prod)
+- [x] Optional Sentry integration (`SENTRY_DSN`)
+- [x] Prometheus metrics endpoint (`/metrics`)
+- [x] CI pipeline (GitHub Actions: pytest + ruff)
+- [x] Production Dockerfile and `docker-compose.prod.yml`
+- [x] Qdrant client pinned to v1.12.x (aligned with Docker image v1.12.5)
+
+## Future work
+
+- Full end-to-end test suite against Supabase local + real services
+- Hybrid search (BM25 + vector) for legal document retrieval
+- OCR pipeline for scanned PDFs and image documents
+- OpenTelemetry distributed tracing
+- Staging environment and secrets management (Vault / cloud secret manager)
+- Security audit and penetration testing
+- Alerting dashboards (Grafana) wired to Prometheus metrics
 
 ## Notes for Agents
 
