@@ -1,0 +1,1 @@
+"""LexDictum backend application."""
