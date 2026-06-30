@@ -55,6 +55,10 @@ async def get_supabase_user_client(
 SupabaseUserClient = Annotated[Client, Depends(get_supabase_user_client)]
 
 
+def _get_qdrant_client_dep() -> QdrantClient:
+    return get_qdrant_client()
+
+
 async def get_case_service_dep(client: SupabaseUserClient) -> CaseService:
     return get_case_service(client)
 
@@ -73,7 +77,7 @@ async def get_conversation_service_dep(
     return get_conversation_service(client)
 
 
-QdrantDep = Annotated[QdrantClient, Depends(get_qdrant_client)]
+QdrantDep = Annotated[QdrantClient, Depends(_get_qdrant_client_dep)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 
 
