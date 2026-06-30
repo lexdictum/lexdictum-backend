@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 from qdrant_client import QdrantClient
 
-from app.config import Settings, get_settings
+from app.config import Settings, effective_allowed_upload_mime_types, get_settings
 from app.core.exceptions import NotFoundError, StorageError
 from app.core.validators import validate_upload_file
 from app.models.document import (
@@ -15,6 +15,7 @@ from app.models.document import (
     DocumentStatusResponse,
     DocumentUploadResponse,
 )
+from app.pipeline.chunk_store import remove_document_chunks
 from app.pipeline.indexer import remove_document_vectors
 from app.services.storage import StorageService, get_storage_service
 from app.vector.qdrant import get_qdrant_client
@@ -105,7 +106,7 @@ class DocumentService:
         content: bytes,
         mime_type: str | None,
     ) -> DocumentUploadResponse:
-        allowed_mimes = frozenset(self._settings.allowed_upload_mime_types)
+        allowed_mimes = effective_allowed_upload_mime_types(self._settings)
         resolved_mime = validate_upload_file(
             filename,
             content,
@@ -160,6 +161,7 @@ class DocumentService:
             str(document.id),
             settings=self._settings,
         )
+        remove_document_chunks(self._client, str(document.id))
         now = datetime.now(UTC).isoformat()
         response = (
             self._client.table("documents")
@@ -186,6 +188,7 @@ class DocumentService:
             str(document.id),
             settings=self._settings,
         )
+        remove_document_chunks(self._client, str(document.id))
         try:
             self._storage.delete(document.storage_path)
         except StorageError:
