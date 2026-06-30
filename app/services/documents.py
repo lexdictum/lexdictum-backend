@@ -32,7 +32,7 @@ class DocumentService:
         self._client = client
         self._storage = storage or get_storage_service(client)
         self._settings = settings or get_settings()
-        self._qdrant = qdrant or get_qdrant_client(self._settings)
+        self._qdrant = qdrant or get_qdrant_client()
 
     def list_documents(self, case_id: UUID, user_id: UUID) -> DocumentListResponse:
         response = (

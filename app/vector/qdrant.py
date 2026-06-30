@@ -98,6 +98,57 @@ def delete_document_vectors(
     )
 
 
+@dataclass(frozen=True)
+class ScoredChunk:
+    case_id: str
+    document_id: str
+    chunk_index: int
+    text: str
+    page: int | None
+    score: float
+
+
+def search_case_chunks(
+    client: QdrantClient,
+    collection: str,
+    case_id: str,
+    query_vector: list[float],
+    top_k: int,
+) -> list[ScoredChunk]:
+    if not client.collection_exists(collection):
+        return []
+
+    results = client.search(
+        collection_name=collection,
+        query_vector=query_vector,
+        query_filter=Filter(
+            must=[
+                FieldCondition(
+                    key="case_id",
+                    match=MatchValue(value=case_id),
+                )
+            ]
+        ),
+        limit=top_k,
+        with_payload=True,
+    )
+
+    chunks: list[ScoredChunk] = []
+    for point in results:
+        payload = point.payload or {}
+        chunks.append(
+            ScoredChunk(
+                case_id=str(payload.get("case_id", case_id)),
+                document_id=str(payload.get("document_id", "")),
+                chunk_index=int(payload.get("chunk_index", 0)),
+                text=str(payload.get("text", "")),
+                page=payload.get("page"),
+                score=float(point.score or 0.0),
+            )
+        )
+    return chunks
+
+
 def setup_qdrant(settings: Settings | None = None) -> None:
     settings = settings or get_settings()
     try:
