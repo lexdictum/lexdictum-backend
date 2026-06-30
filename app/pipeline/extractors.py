@@ -9,6 +9,11 @@ DOCX_MIME = (
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 )
 TEXT_MIME = "text/plain"
+JPEG_MIME = "image/jpeg"
+PNG_MIME = "image/png"
+WEBP_MIME = "image/webp"
+
+IMAGE_MIME_TYPES = frozenset({JPEG_MIME, PNG_MIME, WEBP_MIME})
 
 LEGAL_SECTION_PATTERN = re.compile(
     r"(?m)^(?:"
@@ -33,24 +38,41 @@ class ExtractionError(LexDictumError):
         super().__init__(message, status_code=422)
 
 
-def extract_text(content: bytes, mime_type: str | None) -> list[TextBlock]:
+def extract_text(
+    content: bytes,
+    mime_type: str | None,
+    *,
+    ocr_enabled: bool = False,
+    tesseract_lang: str = "spa",
+) -> list[TextBlock]:
     if not content:
         raise ExtractionError("El documento está vacío")
 
     mime = (mime_type or "").lower()
     if mime == PDF_MIME or content.startswith(b"%PDF"):
-        return _extract_pdf(content)
+        return _extract_pdf(content, ocr_enabled=ocr_enabled, tesseract_lang=tesseract_lang)
     if mime == DOCX_MIME or content.startswith(b"PK\x03\x04"):
         return _extract_docx(content)
     if mime.startswith("text/") or mime == TEXT_MIME:
         return _extract_plain_text(content)
+    if mime in IMAGE_MIME_TYPES:
+        if not ocr_enabled:
+            raise ExtractionError(
+                "Las imágenes requieren OCR. Active OCR_ENABLED para procesarlas."
+            )
+        return _extract_image(content, tesseract_lang=tesseract_lang)
 
     raise ExtractionError(
         "Tipo de archivo no soportado para extracción de texto. Use PDF o DOCX."
     )
 
 
-def _extract_pdf(content: bytes) -> list[TextBlock]:
+def _extract_pdf(
+    content: bytes,
+    *,
+    ocr_enabled: bool,
+    tesseract_lang: str,
+) -> list[TextBlock]:
     import fitz
 
     blocks: list[TextBlock] = []
@@ -59,11 +81,45 @@ def _extract_pdf(content: bytes) -> list[TextBlock]:
             text = page.get_text("text").strip()
             if text:
                 blocks.append(TextBlock(text=text, page=page_number))
+            elif ocr_enabled:
+                ocr_text = _ocr_pdf_page(page, tesseract_lang)
+                if ocr_text:
+                    blocks.append(TextBlock(text=ocr_text, page=page_number))
 
     if not blocks:
+        if ocr_enabled:
+            raise ExtractionError(
+                "No se pudo extraer texto del PDF, ni siquiera con OCR."
+            )
         raise ExtractionError("No se pudo extraer texto del PDF")
 
     return blocks
+
+
+def _ocr_pdf_page(page, lang: str) -> str:
+    pixmap = page.get_pixmap()
+    return _run_tesseract(pixmap.tobytes("png"), lang)
+
+
+def _extract_image(content: bytes, *, tesseract_lang: str) -> list[TextBlock]:
+    text = _run_tesseract(content, tesseract_lang)
+    if not text:
+        raise ExtractionError("No se pudo extraer texto de la imagen con OCR.")
+    return [TextBlock(text=text, page=1)]
+
+
+def _run_tesseract(image_bytes: bytes, lang: str) -> str:
+    try:
+        import pytesseract
+        from PIL import Image
+    except ImportError as exc:
+        raise ExtractionError(
+            "OCR no está disponible. Instale pytesseract y Pillow "
+            "(uv sync --extra ocr) o desactive OCR_ENABLED."
+        ) from exc
+
+    image = Image.open(io.BytesIO(image_bytes))
+    return pytesseract.image_to_string(image, lang=lang).strip()
 
 
 def _extract_docx(content: bytes) -> list[TextBlock]:
