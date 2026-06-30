@@ -8,6 +8,7 @@ import httpx
 
 from app.config import Settings, get_settings
 from app.core.exceptions import ServiceUnavailableError
+from app.core.telemetry import trace_span
 from app.models.conversation import Citation, MessageResponse, MessageRole
 from app.services.rag import RetrievedChunk
 
@@ -74,14 +75,15 @@ class LLMService:
         self.ensure_configured()
         payload = self._build_payload(messages, stream=False)
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                self._chat_completions_url,
-                headers=self._headers(),
-                json=payload,
-            )
-            response.raise_for_status()
-            data = response.json()
+        with trace_span("llm.generate", model=self._settings.llm_model):
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.post(
+                    self._chat_completions_url,
+                    headers=self._headers(),
+                    json=payload,
+                )
+                response.raise_for_status()
+                data = response.json()
 
         content = data["choices"][0]["message"]["content"]
         return self.parse_citations(content, context_chunks)

@@ -5,6 +5,7 @@ from uuid import UUID
 from qdrant_client import QdrantClient
 
 from app.config import Settings, get_settings
+from app.core.telemetry import trace_span
 from app.models.conversation import ChatResponse, Citation, MessageRole
 from app.services.conversations import ConversationService, get_conversation_service
 from app.services.llm import LLMService, get_llm_service
@@ -26,6 +27,19 @@ class ChatService:
         self._settings = settings or get_settings()
 
     async def chat(
+        self,
+        conversation_id: UUID,
+        user_id: UUID,
+        content: str,
+    ) -> ChatResponse:
+        with trace_span(
+            "chat.request",
+            conversation_id=str(conversation_id),
+            user_id=str(user_id),
+        ):
+            return await self._chat_impl(conversation_id, user_id, content)
+
+    async def _chat_impl(
         self,
         conversation_id: UUID,
         user_id: UUID,

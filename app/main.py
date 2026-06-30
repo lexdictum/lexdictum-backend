@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.core.exceptions import LexDictumError, http_exception_from_error
 from app.core.logging import setup_logging
 from app.core.middleware import RequestIDMiddleware
+from app.core.telemetry import init_telemetry, instrument_fastapi
 from app.vector.qdrant import setup_qdrant
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,7 @@ def _init_prometheus(app: FastAPI) -> None:
 async def lifespan(app: FastAPI):
     settings = get_settings()
     setup_logging(settings)
+    init_telemetry(settings)
     if settings.sentry_dsn:
         _init_sentry(settings.sentry_dsn)
     setup_qdrant(settings)
@@ -128,6 +130,7 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router, prefix="/api")
     _init_prometheus(app)
+    instrument_fastapi(app)
 
     return app
 

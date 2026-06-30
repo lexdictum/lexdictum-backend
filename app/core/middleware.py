@@ -5,6 +5,8 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
+from app.core.telemetry import link_request_id
+
 _request_id_ctx: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 
@@ -18,6 +20,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         token = _request_id_ctx.set(request_id)
+        link_request_id(request_id)
         try:
             response = await call_next(request)
         finally:
