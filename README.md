@@ -17,9 +17,12 @@ Spanish legal case management API for lawyers.
 # Install dependencies
 uv sync --extra dev
 
-# Copy environment template
+# On a new machine, install git-crypt and unlock once.
+# The working tree stays plaintext. The committed blob is ciphertext.
+# The key file is never committed.
+git-crypt unlock ~/Desktop/crypt/lexdictum-backend/lexdictum-backend.key
+# Until a root .env is in git, copy the template and fill it in.
 cp .env.example .env
-# Edit .env with your Supabase credentials
 
 # Start local infrastructure
 docker compose up -d

@@ -6,7 +6,6 @@ __pycache__/
 .venv/
 venv/
 env/
-.env
 *.egg-info/
 dist/
 build/
@@ -19,3 +18,10 @@ htmlcov/
 .DS_Store
 .idea/
 .vscode/
+
+# Root `.env` is tracked and encrypted with git-crypt. Nested and template env files stay ignored.
+.env.*
+!.env.example
+!.env.staging.example
+**/.env
+!/.env

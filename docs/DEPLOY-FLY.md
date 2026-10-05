@@ -92,7 +92,7 @@ Already external. Use production URL and keys from the Supabase dashboard (Setti
 
 ## 3. Set secrets
 
-Secrets are never committed. Set them on **both** API and worker apps (worker needs Supabase service role + Qdrant + Redis; API needs all runtime secrets).
+Fly app secrets are set on the apps, not committed as plaintext. A repo-root `.env`, once added, is committed as git-crypt ciphertext. On a new machine, install git-crypt and run `git-crypt unlock ~/Desktop/crypt/lexdictum-backend/lexdictum-backend.key` once. The working tree stays plaintext. The key file is never committed. Set runtime secrets on **both** API and worker apps (worker needs Supabase service role + Qdrant + Redis; API needs all runtime secrets).
 
 ```bash
 # API — replace values; repeat with --app lexdictum-api-staging for staging
